@@ -71,6 +71,13 @@ let ords=[
  {id:'FS-1003',name:'Sofía (ficticia)',phone:'55 0000 0003',addr:'Av. Inventada 5, Texcoco',mode:'domicilio',zone:0,pdate:key(addD(3)),pslot:'19:00',edate:'',ss:0,pay:'pendiente',pairs:[{id:'FS-1003-1',l:'Par 1',svc:1,ph:{a:[],d:[],f:[]}}]},
  {id:'FS-1004',name:'Iván (ficticio)',phone:'55 0000 0004',addr:'',mode:'tienda',zone:0,pdate:key(addD(-6)),pslot:'13:00',edate:'',ss:6,pay:'pendiente',pairs:[{id:'FS-1004-1',l:'Blancos',svc:3,ph:{a:[ph(2,1)],d:[ph(1,1)],f:[ph(0,1)]}}]},
  {id:'FS-1005',name:'Lucía (ficticia)',phone:'55 0000 0005',addr:'',mode:'tienda',zone:0,pdate:key(addD(-9)),pslot:'11:00',edate:key(addD(-3)),ss:7,pay:'pagado',pairs:[{id:'FS-1005-1',l:'Par azul',svc:2,ph:{a:[ph(2,0)],d:[],f:[ph(0,0)]}}]}];
+// Los 5 pedidos de arriba son SOLO demo sin Supabase. En init(), si hay Supabase configurado,
+// ords se reemplaza por los pedidos reales creados en este dispositivo (localStorage).
+// La lectura de pedidos/pares desde Supabase para admin y seguimiento aún NO está conectada:
+// no hay en el repo ninguna consulta a las tablas pedidos/pares/fotografias, así que no se inventa.
+const LS_KEY='felipes_pedidos_reales_v1';
+const loadLocalOrders=()=>{try{return JSON.parse(localStorage.getItem(LS_KEY)||'[]')}catch(e){return[]}};
+const saveLocalOrder=o=>{try{const l=loadLocalOrders(),i=l.findIndex(x=>x.id===o.id);if(i>=0)l[i]=o;else l.push(o);localStorage.setItem(LS_KEY,JSON.stringify(l))}catch(e){}};
 let mode='c',ct='home',at='ped',step=1,flt='Solicitados',sel=null,track='FS-1001',tp=null,eS=null;
 const nit=()=>({l:'',svc:null,ph:[]});
 const nd=()=>({items:[nit()],mode:'tienda',zone:0,date:'',slot:'',name:'',phone:'',addr:'',ref:''});
@@ -148,8 +155,8 @@ function render(){
  $('#top').innerHTML=`<div class="brand"><img src="${LOGO}" alt="Logo"><div><b>Felipes con Sneakers</b><small>Laundry - Shop</small></div></div>${isAdm&&mode==='a'?'<button class="sm" data-a="logout">Salir</button>':''}<div class="seg"><button class="${mode==='c'?'on':''}" data-a="mode" data-id="c">Cliente</button><button class="${mode==='a'?'on':''}" data-a="mode" data-id="a">Admin</button></div>`;
  const T=mode==='c'?CT:AT,cur=mode==='c'?ct:at,pc=ords.filter(o=>o.ss===0).length,n=D.items.length;
  $('#nav').innerHTML=(mode==='a'&&!isAdm)?'':T.map(t=>`<button class="${cur===t[0]?'on':''}" data-a="tab" data-id="${t[0]}"><span>${t[1]}</span>${t[2]}${t[0]==='cart'&&D.items.some(x=>x.svc)?`<i>${n}</i>`:''}${t[0]==='ped'&&pc?`<i>${pc}</i>`:''}</button>`).join('');
- $('#demo').textContent=sb?(svState==='ok'?'Servicios reales conectados · Los pedidos siguen siendo de ejemplo · Sin pagos en línea':svState==='err'?'Error al leer los servicios de Supabase':'Conectando con Supabase…'):'Sin conexión: falta configurar config.js';
- $('#v').innerHTML=(mode==='a'&&!isAdm)?loginView():(mode==='a'&&isAdm&&['ped','agenda','cli'].includes(cur)?'<div class="warn">Pedidos de ejemplo: aún no están conectados a Supabase.</div>':'')+(mode==='c'?C:A)[cur]();$('#fab').style.display=mode==='c'?'block':'none';
+ $('#demo').textContent=sb?(svState==='ok'?'Servicios reales conectados · Pedidos nuevos se crean con crear-pedido · Sin pagos en línea':svState==='err'?'Error al leer los servicios de Supabase':'Conectando con Supabase…'):'Sin conexión: falta configurar config.js';
+ $('#v').innerHTML=(mode==='a'&&!isAdm)?loginView():(mode==='a'&&isAdm&&['ped','agenda','cli'].includes(cur)?'<div class="warn">Pedidos reales creados en este dispositivo. La lectura de pedidos de Supabase para admin aún no está conectada.</div>':'')+(mode==='c'?C:A)[cur]();$('#fab').style.display=mode==='c'?'block':'none';
  if(mode==='a'&&at==='cfg')document.querySelectorAll('[data-a=tday]').forEach(b=>{b.classList.toggle('on',cfg.days.includes(+b.dataset.id))});
 }
 function readImgs(fs,cb){[...fs].forEach(f=>{const r=new FileReader();r.onload=()=>{const i=new Image();i.onload=()=>{const k=Math.min(1,800/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=i.width*k;c.height=i.height*k;c.getContext('2d').drawImage(i,0,0,c.width,c.height);cb(c.toDataURL('image/jpeg',.8));render()};i.src=r.result};r.readAsDataURL(f)})}
@@ -166,9 +173,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b
  else if(a==='mode2'){D.mode=id;render()}else if(a==='zone'){D.zone=+id;render()}else if(a==='date'){D.date=id;render()}else if(a==='slot'){D.slot=id;render()}
  else if(a==='n2'){if(!D.date||!D.slot){toast('Elige fecha y horario');return}step=3;render();up()}
  else if(a==='back'){step--;render();up()}
- else if(a==='send'){if(!D.name.trim()||D.phone.replace(/\D/g,'').length<8){toast('Escribe nombre y teléfono');return}if(D.mode==='domicilio'&&!D.addr.trim()){toast('Falta la dirección');return}
-  const n='FS-'+(1001+ords.length);ords.push({id:n,name:D.name.trim(),phone:D.phone,addr:D.addr+(D.ref?' ('+D.ref+')':''),mode:D.mode,zone:D.zone,pdate:D.date,pslot:D.slot,edate:'',ss:0,pay:'pendiente',pairs:D.items.map((x,i)=>({id:n+'-'+(i+1),l:x.l||'Par '+(i+1),svc:x.svc,ph:{a:x.ph.map(d=>({d})),d:[],f:[]}}))});
-  track=n;tp=null;D=nd();step=1;show(`<h1>Solicitud registrada</h1><p>Código <b>${n}</b>. Estado: <b>Solicitado</b>. Tu reservación <b>no está confirmada</b>: el negocio debe revisarla.</p><p>💵 Paga cuando recibas tus sneakers.</p><p class="mut">Prototipo: este pedido NO se guardó en Supabase todavía; sigue siendo de ejemplo.</p><button class="p w" data-a="gt" data-id="${n}">Ver seguimiento</button>`);render()}
+ else if(a==='send'){sendPedido()}
  else if(a==='gt'){$('#sheet').style.display='none';ct='track';track=id;render()}
  else if(a==='find'){track=$('#tk').value;tp=null;render()}else if(a==='t'){track=id;tp=null;render()}else if(a==='tp'){tp=id;render()}
  else if(a==='wa')show(`<h3>Contactar por WhatsApp</h3><p class="mut">Simulación: aquí se abriría WhatsApp con el número del negocio. En el prototipo no se envía nada.</p><button class="p w" data-a="x">Entendido</button>`);
@@ -235,7 +240,38 @@ async function toggleSvc(id){
  if(r.error||!(r.data||[]).length){toast('No se pudo cambiar: '+(r.error?r.error.message:'sin permiso'));return}
  await loadSvcs();toast(s.activo?'Servicio desactivado':'Servicio activado')}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='pw')doLogin()});
-async function init(){render();if(sb){await checkAdmin();await loadSvcs()}}
+// --- Pedidos reales con la Edge Function crear-pedido ---
+// Contrato probado por Luja (HTTP 200, respuesta {folio}):
+//   POST {SUPABASE_URL}/functions/v1/crear-pedido
+//   body: {nombre, telefono, tipo_entrega, fecha, horario, pares:[{servicio_id, modelo}]}
+//   tipo_entrega probado: "establecimiento". Para domicilio se envía "domicilio"
+//   (valor no probado aún: si la función lo rechaza, el error se muestra y no se crea pedido).
+//   direccion/zona solo se envían en domicilio como campos extra; si la función los ignora,
+//   el pedido igual se crea con los campos probados y la dirección queda en este dispositivo.
+//   Las fotos del cliente NO se envían aquí: el body probado no las incluye y no hay
+//   endpoint documentado para fotografias. No se simula su subida a Supabase.
+//   Solo se usa la publishable key de config.js. Nunca service_role ni claves secretas.
+async function crearPedido(payload){
+ const url=CF.SUPABASE_URL.replace(/\/$/,'')+'/functions/v1/crear-pedido';
+ const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','apikey':CF.SUPABASE_KEY,'Authorization':'Bearer '+CF.SUPABASE_KEY},body:JSON.stringify(payload)});
+ let j=null;try{j=await r.json()}catch(e){}
+ if(!r.ok)throw new Error((j&&(j.error||j.message))||('Error '+r.status+' al crear el pedido'));
+ if(!j||!j.folio)throw new Error('crear-pedido no devolvió folio');
+ return j.folio}
+async function sendPedido(){
+ if(!sb){toast('Falta configurar Supabase');return}
+ if(!D.name.trim()||D.phone.replace(/\D/g,'').length<8){toast('Escribe nombre y teléfono');return}
+ if(!D.date||!D.slot){toast('Elige fecha y horario');return}
+ if(D.mode==='domicilio'&&!D.addr.trim()){toast('Falta la dirección');return}
+ const payload={nombre:D.name.trim(),telefono:D.phone.replace(/\D/g,''),tipo_entrega:D.mode==='tienda'?'establecimiento':'domicilio',fecha:D.date,horario:D.slot,pares:D.items.map((x,i)=>({servicio_id:+x.svc,modelo:(x.l||'').trim()||('Par '+(i+1))}))};
+ if(D.mode==='domicilio'){payload.direccion=D.addr.trim()+(D.ref?' ('+D.ref.trim()+')':'');payload.zona=cfg.zones[D.zone]?cfg.zones[D.zone].n:''}
+ toast('Enviando pedido…');
+ let folio;try{folio=await crearPedido(payload)}catch(err){toast(err.message||'No se pudo crear el pedido');return}
+ const o={id:folio,name:D.name.trim(),phone:D.phone,addr:D.addr+(D.ref?' ('+D.ref+')':''),mode:D.mode,zone:D.zone,pdate:D.date,pslot:D.slot,edate:'',ss:0,pay:'pendiente',pairs:D.items.map((x,i)=>({id:folio+'-'+(i+1),l:x.l||'Par '+(i+1),svc:x.svc,ph:{a:x.ph.map(d=>({d})),d:[],f:[]}}))};
+ ords.push(o);saveLocalOrder(o);
+ track=folio;tp=null;D=nd();step=1;
+ show(`<h1>Solicitud registrada</h1><p>Código <b>${folio}</b>. Estado: <b>Solicitado</b>. Tu reservación <b>no está confirmada</b>: el negocio debe revisarla.</p><p>💵 Paga cuando recibas tus sneakers.</p><p class="mut">Pedido real guardado en Supabase con folio ${folio}. Las fotos que subiste solo se ven en este dispositivo por ahora.</p><button class="p w" data-a="gt" data-id="${folio}">Ver seguimiento</button>`);render()}
+async function init(){if(sb){ords=loadLocalOrders();track=ords[0]?ords[0].id:''}render();if(sb){await checkAdmin();await loadSvcs()}}
 init();
 </script>
 </body>
