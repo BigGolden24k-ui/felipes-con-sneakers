@@ -271,7 +271,7 @@ async function sendPedido(){
  ords.push(o);saveLocalOrder(o);
  track=folio;tp=null;D=nd();step=1;
  show(`<h1>Solicitud registrada</h1><p>Código <b>${folio}</b>. Estado: <b>Solicitado</b>. Tu reservación <b>no está confirmada</b>: el negocio debe revisarla.</p><p>💵 Paga cuando recibas tus sneakers.</p><p class="mut">Pedido real guardado en Supabase con folio ${folio}. Las fotos que subiste solo se ven en este dispositivo por ahora.</p><button class="p w" data-a="gt" data-id="${folio}">Ver seguimiento</button>`);render()}
-async function init(){if(sb){ords=loadLocalOrders();track=ords[0]?ords[0].id:''}render();if(sb){await checkAdmin();await loadSvcs()}}
+async function init(){if(sb){ords=loadLocalOrders();track=ords[0]?ords[0].id:''}render();if(sb){const serviciosPromise=loadSvcs();await checkAdmin();await serviciosPromise;if(isAdm)await loadSvcs()}}
 init();
 </script>
 </body>
