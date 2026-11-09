@@ -218,15 +218,17 @@ async function doLogin(){
  loginErr='';await loadSvcs();toast('Sesión iniciada')}
 async function doLogout(){await sb.auth.signOut();sess=null;isAdm=false;svcsAdm=[];at='ped';sel=null;eS=null;render()}
 async function loadSvcs(){
- if(!sb){svState='err';svErr='Sin conexión configurada';render();return}
- svState='load';render();
- const cols='id,nombre,descripcion,precio,activo',m=r=>(r.data||[]).map(x=>({id:x.id,n:x.nombre,d:x.descripcion||'',p:Number(x.precio),activo:x.activo,t:'',i:ico(x.nombre),caps:/\bcaps?\b/i.test(x.nombre)}));
- const a=await sb.from('servicios').select(cols).eq('activo',true).order('id');
- if(a.error){svState='err';svErr=a.error.message;svcs=[];render();return}
- svcs=m(a);svState='ok';
- if(isAdm){const b=await sb.from('servicios').select(cols).order('id');svcsAdm=b.error?[]:m(b)}else svcsAdm=[];
- ords.forEach(o=>o.pairs.forEach((p,i)=>{if(svcs.length&&!svcs.find(s=>s.id===p.svc))p.svc=svcs[i%svcs.length].id}));
- D.items.forEach(x=>{if(x.svc&&!svcs.find(s=>s.id===x.svc))x.svc=null});
+ if(!sb){svState='err';svErr='Sin conexión configurada. Revisa config.js.';render();return}
+ svState='load';svErr='';render();
+ try{
+  const cols='id,nombre,descripcion,precio,activo',m=r=>(r.data||[]).map(x=>({id:x.id,n:x.nombre,d:x.descripcion||'',p:Number(x.precio),activo:x.activo,t:'',i:ico(x.nombre),caps:/\bcaps?\b/i.test(x.nombre)}));
+  const a=await sb.from('servicios').select(cols).eq('activo',true).order('id');
+  if(a.error)throw a.error;
+  svcs=m(a);svState='ok';
+  if(isAdm){const b=await sb.from('servicios').select(cols).order('id');svcsAdm=b.error?[]:m(b)}else svcsAdm=[];
+  ords.forEach(o=>o.pairs.forEach((p,i)=>{if(svcs.length&&!svcs.find(s=>s.id===p.svc))p.svc=svcs[i%svcs.length].id}));
+  D.items.forEach(x=>{if(x.svc&&!svcs.find(s=>s.id===x.svc))x.svc=null});
+ }catch(err){svState='err';svErr=err&&err.message?err.message:String(err);svcs=[];svcsAdm=[];}
  render()}
 async function saveSvc(){
  const n=(eS.n||'').trim(),p=eS.p===''||eS.p==null?NaN:+eS.p;
@@ -271,7 +273,7 @@ async function sendPedido(){
  ords.push(o);saveLocalOrder(o);
  track=folio;tp=null;D=nd();step=1;
  show(`<h1>Solicitud registrada</h1><p>Código <b>${folio}</b>. Estado: <b>Solicitado</b>. Tu reservación <b>no está confirmada</b>: el negocio debe revisarla.</p><p>💵 Paga cuando recibas tus sneakers.</p><p class="mut">Pedido real guardado en Supabase con folio ${folio}. Las fotos que subiste solo se ven en este dispositivo por ahora.</p><button class="p w" data-a="gt" data-id="${folio}">Ver seguimiento</button>`);render()}
-async function init(){if(sb){ords=loadLocalOrders();track=ords[0]?ords[0].id:''}render();if(sb){const serviciosPromise=loadSvcs();await checkAdmin();await serviciosPromise;if(isAdm)await loadSvcs()}}
+async function init(){if(sb){ords=loadLocalOrders();track=ords[0]?ords[0].id:''}render();if(sb){await checkAdmin();await loadSvcs()}}
 init();
 </script>
 </body>
